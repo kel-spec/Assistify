@@ -85,7 +85,8 @@ elif st.session_state["user_role"] == "customer":
     
     # Product display
     st.subheader("Product: Wireless Earbuds")
-    st.image("https://via.placeholder.com/150", caption="Wireless Earbuds", use_column_width=True)
+    st.image("https://img.lazcdn.com/g/p/14a60b5b72480c7f7ef5c3bd9dee69b5.jpg_720x720q80.jpg_.webp", caption="Wireless Earbuds", use_column_width=True)
+    st.write("Pro6 True Wireless Earbuds Bluetooth Earphone Touch Control with Mic Waterproof TWS Stereo Headphone Headset Sport")
 
     # Star-based review system
     st.subheader("Leave a Quick Review")
