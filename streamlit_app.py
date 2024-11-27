@@ -1,4 +1,6 @@
 import streamlit as st
+from textblob import TextBlob
+import random
 
 # Initialize session state variables
 if "accounts" not in st.session_state:
@@ -14,6 +16,9 @@ if "user_role" not in st.session_state:
 
 if "product_reviews" not in st.session_state:
     st.session_state["product_reviews"] = {}  # Format: {"product_id": {"positive": [], "neutral": [], "negative": []}}
+
+if "conversation_history" not in st.session_state:
+    st.session_state["conversation_history"] = []
 
 
 # Functions for authentication and account management
@@ -44,6 +49,36 @@ def log_out():
     st.session_state["current_user"] = None
     st.session_state["user_role"] = None
     st.session_state["products"] = []
+
+
+# Chatbot functionality
+def detect_sentiment_intensity(message):
+    analysis = TextBlob(message)
+    polarity = analysis.sentiment.polarity
+    if polarity > 0.5:
+        return "strongly positive"
+    elif polarity > 0:
+        return "mildly positive"
+    elif polarity < -0.5:
+        return "strongly negative"
+    elif polarity < 0:
+        return "mildly negative"
+    else:
+        return "neutral"
+
+
+responses = {
+    "strongly positive": ["That's fantastic! 😊 We’re thrilled you’re happy with our service."],
+    "mildly positive": ["Thanks for your feedback! 😊 Glad to know you’re satisfied."],
+    "neutral": ["Thanks for reaching out. 😊 Let us know if you have any questions!"],
+    "mildly negative": ["We apologize if things didn’t meet your expectations. 😟 How can we help?"],
+    "strongly negative": ["We’re really sorry to hear that. 😞 Please contact support, and we’ll assist you immediately."],
+}
+
+
+def generate_response(user_input):
+    sentiment = detect_sentiment_intensity(user_input)
+    return random.choice(responses.get(sentiment, ["I’m here to help! 😊"]))
 
 
 # Seller dashboard
@@ -101,6 +136,21 @@ def customer_ui():
                 st.success("Thank you for your feedback!")
             else:
                 st.error("Product not found.")
+
+    # Chatbot Section
+    st.subheader("Ask Assistify")
+    user_input = st.text_input("Your message to the chatbot:")
+    if st.button("Send to Chatbot"):
+        if user_input.strip():
+            bot_response = generate_response(user_input)
+            st.session_state["conversation_history"].append({"user": user_input, "bot": bot_response})
+        else:
+            st.warning("Please enter a message.")
+
+    # Display Chat History
+    for turn in st.session_state["conversation_history"]:
+        st.write(f"**You:** {turn['user']}")
+        st.write(f"**Assistify:** {turn['bot']}")
 
 
 # Developer interface
