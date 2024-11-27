@@ -26,44 +26,87 @@ responses = {
     "strongly negative": ["We’re really sorry to hear that. 😞 Please contact support, and we’ll assist you immediately."],
 }
 
-# Streamlit app setup
-st.title("Assistify 🛒")
-st.sidebar.header("Chatbot Settings")
+# Initialize session state for login
+if "user_role" not in st.session_state:
+    st.session_state["user_role"] = None
 
-# Function to greet the user
-def greet_user(name):
-    return f"Hello, {name}! How can I assist you today?"
+if "reviews" not in st.session_state:
+    st.session_state["reviews"] = {"positive": [], "neutral": [], "negative": []}
 
-# Function to generate a response based on sentiment intensity
-def generate_response(user_input, user_name):
-    sentiment = detect_sentiment_intensity(user_input)
-    response_options = responses.get(sentiment, [f"I'm here to help, {user_name}!"])
-    return random.choice(response_options)
+# User login selection
+if st.session_state["user_role"] is None:
+    st.title("Welcome to Assistify 🛒")
+    st.subheader("Sign in as")
+    if st.button("Customer"):
+        st.session_state["user_role"] = "customer"
+    elif st.button("Seller"):
+        st.session_state["user_role"] = "seller"
 
-# Initialize conversation history in Streamlit session state
-if "conversation_history" not in st.session_state:
-    st.session_state["conversation_history"] = []
+# Customer interface
+elif st.session_state["user_role"] == "customer":
+    st.title("Assistify Chatbot - Customer")
+    st.sidebar.header("Customer Settings")
+    
+    # Sample product display
+    st.subheader("Available Products")
+    st.write("1. Wireless Earbuds - $50")
+    st.write("2. Smartwatch - $120")
+    st.write("3. Bluetooth Speaker - $30")
 
-# User name input
-user_name = st.sidebar.text_input("Enter your name", "Guest")
+    # Initialize conversation history
+    if "conversation_history" not in st.session_state:
+        st.session_state["conversation_history"] = []
 
-# Greet user if name provided
-if user_name:
-    st.write(greet_user(user_name))
+    # Function to greet the user
+    def greet_user(name):
+        return f"Hello, {name}! How can I assist you today?"
 
-# User message input
-user_input = st.text_input("You:", "")
+    # User name input
+    user_name = st.sidebar.text_input("Enter your name", "Guest")
 
-# Generate response on button click
-if st.button("Send"):
-    if user_input.strip():
-        response = generate_response(user_input, user_name)
-        # Save the interaction in conversation history
-        st.session_state["conversation_history"].append({"user": user_input, "bot": response})
-    else:
-        st.warning("Please enter a message.")
+    # Greet user if name provided
+    if user_name:
+        st.write(greet_user(user_name))
 
-# Display conversation history with indentation
-for turn in st.session_state["conversation_history"]:
-    st.markdown(f"**You:** {turn['user']}")
-    st.markdown(f"<div style='margin-left: 20px;'>Assistify: {turn['bot']}</div>", unsafe_allow_html=True)
+    # User message input
+    user_input = st.text_input("You:", "")
+
+    # Generate response on button click
+    if st.button("Send"):
+        if user_input.strip():
+            sentiment = detect_sentiment_intensity(user_input)
+            response = random.choice(responses.get(sentiment, ["I'm here to help!"]))
+            st.session_state["conversation_history"].append({"user": user_input, "bot": response})
+            # Save categorized reviews
+            if sentiment in ["strongly positive", "mildly positive"]:
+                st.session_state["reviews"]["positive"].append(user_input)
+            elif sentiment == "neutral":
+                st.session_state["reviews"]["neutral"].append(user_input)
+            else:
+                st.session_state["reviews"]["negative"].append(user_input)
+        else:
+            st.warning("Please enter a message.")
+
+    # Display conversation history
+    for turn in st.session_state["conversation_history"]:
+        st.markdown(f"**You:** {turn['user']}")
+        st.markdown(f"<div style='margin-left: 20px;'>Assistify: {turn['bot']}</div>", unsafe_allow_html=True)
+
+# Seller interface
+elif st.session_state["user_role"] == "seller":
+    st.title("Assistify Dashboard - Seller")
+    st.sidebar.header("Seller Settings")
+    
+    st.subheader("Customer Feedback Summary")
+    st.write("### Positive Reviews")
+    st.write(st.session_state["reviews"]["positive"] or "No positive reviews yet.")
+    
+    st.write("### Neutral Reviews")
+    st.write(st.session_state["reviews"]["neutral"] or "No neutral reviews yet.")
+    
+    st.write("### Negative Reviews")
+    st.write(st.session_state["reviews"]["negative"] or "No negative reviews yet.")
+
+    st.write("Sign out if you wish to return to the startup window.")
+    if st.button("Sign Out"):
+        st.session_state["user_role"] = None
