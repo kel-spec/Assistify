@@ -1,6 +1,7 @@
 streamlit
 openai
 textblob
-AutoModelForCausalLM
-AutoTokenizer
-torch
+transformers
+pandas
+numpy
+matplotlib
