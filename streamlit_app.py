@@ -2,6 +2,19 @@ import streamlit as st
 from textblob import TextBlob
 import random
 
+# Initialize account database in session state
+if "accounts" not in st.session_state:
+    st.session_state["accounts"] = {"developer": {"password": "dev123", "role": "developer"}}
+if "user_role" not in st.session_state:
+    st.session_state["user_role"] = None
+
+# Function to validate login
+def validate_login(username, password):
+    accounts = st.session_state["accounts"]
+    if username in accounts and accounts[username]["password"] == password:
+        return accounts[username]["role"]
+    return None
+
 # Function to detect sentiment with intensity
 def detect_sentiment_intensity(message):
     analysis = TextBlob(message)
@@ -26,25 +39,48 @@ responses = {
     "strongly negative": ["We’re really sorry to hear that. 😞 Please contact support, and we’ll assist you immediately."],
 }
 
-# Initialize session state for login
-if "user_role" not in st.session_state:
-    st.session_state["user_role"] = None
-
-if "reviews" not in st.session_state:
-    st.session_state["reviews"] = {"positive": [], "neutral": [], "negative": []}
-
-# User login selection
+# Login or signup screen
 if st.session_state["user_role"] is None:
     st.title("Welcome to Assistify 🛒")
-    st.subheader("Sign in as")
-    if st.button("Customer"):
-        st.session_state["user_role"] = "customer"
-    elif st.button("Seller"):
-        st.session_state["user_role"] = "seller"
+    st.subheader("Sign in or Sign up to continue")
+    
+    # Login form
+    with st.form("login_form"):
+        st.write("Login")
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        submit_login = st.form_submit_button("Sign In")
+    
+    if submit_login:
+        role = validate_login(username, password)
+        if role:
+            st.session_state["user_role"] = role
+            st.session_state["current_user"] = username
+            st.success(f"Welcome back, {username}!")
+        else:
+            st.error("Invalid username or password.")
+    
+    # Signup form
+    st.write("---")
+    with st.form("signup_form"):
+        st.write("Sign Up")
+        new_username = st.text_input("New Username")
+        new_password = st.text_input("New Password", type="password")
+        confirm_password = st.text_input("Confirm Password", type="password")
+        submit_signup = st.form_submit_button("Sign Up")
+    
+    if submit_signup:
+        if new_password != confirm_password:
+            st.error("Passwords do not match!")
+        elif new_username in st.session_state["accounts"]:
+            st.error("Username already exists!")
+        else:
+            st.session_state["accounts"][new_username] = {"password": new_password, "role": "customer"}
+            st.success("Account created successfully! Please log in.")
 
 # Customer interface
 elif st.session_state["user_role"] == "customer":
-    st.title("Assistify - Customer")
+    st.title(f"Welcome, {st.session_state['current_user']}!")
     st.sidebar.header("Customer Settings")
     
     # Product display
@@ -54,64 +90,36 @@ elif st.session_state["user_role"] == "customer":
     # Star-based review system
     st.subheader("Leave a Quick Review")
     rating = st.radio("Rate the product:", [1, 2, 3], format_func=lambda x: f"{x} Star{'s' if x > 1 else ''}")
-    
     if st.button("Submit Star Review"):
-        if rating == 1:
-            st.session_state["reviews"]["negative"].append("1-Star Review")
-            st.success("Thank you for your feedback! Your review has been submitted as Negative.")
-        elif rating == 2:
-            st.session_state["reviews"]["neutral"].append("2-Star Review")
-            st.success("Thank you for your feedback! Your review has been submitted as Neutral.")
-        elif rating == 3:
-            st.session_state["reviews"]["positive"].append("3-Star Review")
-            st.success("Thank you for your feedback! Your review has been submitted as Positive.")
+        st.success("Thank you for your feedback!")
     
     st.write("---")
     st.subheader("Have More to Say? Chat With Us!")
-    
-    # Initialize conversation history
-    if "conversation_history" not in st.session_state:
-        st.session_state["conversation_history"] = []
-
-    # User input
     user_input = st.text_input("You:", "")
-
-    # Generate response on button click
     if st.button("Send Chat Review"):
-        if user_input.strip():
-            sentiment = detect_sentiment_intensity(user_input)
-            response = random.choice(responses.get(sentiment, ["I'm here to help!"]))
-            st.session_state["conversation_history"].append({"user": user_input, "bot": response})
-            # Save categorized reviews
-            if sentiment in ["strongly positive", "mildly positive"]:
-                st.session_state["reviews"]["positive"].append(user_input)
-            elif sentiment == "neutral":
-                st.session_state["reviews"]["neutral"].append(user_input)
-            else:
-                st.session_state["reviews"]["negative"].append(user_input)
-        else:
-            st.warning("Please enter a message.")
+        st.success("Thank you for your detailed feedback!")
 
-    # Display conversation history
-    for turn in st.session_state["conversation_history"]:
-        st.markdown(f"**You:** {turn['user']}")
-        st.markdown(f"<div style='margin-left: 20px;'>Assistify: {turn['bot']}</div>", unsafe_allow_html=True)
+    if st.button("Sign Out"):
+        st.session_state["user_role"] = None
 
 # Seller interface
 elif st.session_state["user_role"] == "seller":
-    st.title("Assistify - Seller Dashboard")
+    st.title(f"Seller Dashboard - {st.session_state['current_user']}")
     st.sidebar.header("Seller Settings")
     
-    st.subheader("Customer Feedback Summary")
-    st.write("### Positive Reviews")
-    st.write(st.session_state["reviews"]["positive"] or "No positive reviews yet.")
-    
-    st.write("### Neutral Reviews")
-    st.write(st.session_state["reviews"]["neutral"] or "No neutral reviews yet.")
-    
-    st.write("### Negative Reviews")
-    st.write(st.session_state["reviews"]["negative"] or "No negative reviews yet.")
+    st.write("Review summary will be displayed here.")
+    if st.button("Sign Out"):
+        st.session_state["user_role"] = None
 
-    st.write("Sign out if you wish to return to the startup window.")
+# Developer interface
+elif st.session_state["user_role"] == "developer":
+    st.title("Developer Dashboard")
+    st.sidebar.header("Developer Settings")
+    
+    # Manage accounts
+    st.subheader("Accounts Database")
+    for user, info in st.session_state["accounts"].items():
+        st.write(f"Username: {user}, Role: {info['role']}")
+    
     if st.button("Sign Out"):
         st.session_state["user_role"] = None
