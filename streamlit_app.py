@@ -122,4 +122,5 @@ elif st.session_state["user_role"] == "developer":
         st.write(f"Username: {user}, Role: {info['role']}")
     
     if st.button("Sign Out"):
-        st.session_state["user_role"] = None
+    st.session_state["user_role"] = None
+    st.session_state["current_user"] = None
