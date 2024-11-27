@@ -1,6 +1,4 @@
 import streamlit as st
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
 
 # Initialize session state variables
 if "accounts" not in st.session_state:
