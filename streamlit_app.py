@@ -1,6 +1,6 @@
 import streamlit as st
-from textblob import TextBlob
-import random
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
 
 # Initialize session state variables
 if "accounts" not in st.session_state:
@@ -20,65 +20,40 @@ if "product_reviews" not in st.session_state:
 if "conversation_history" not in st.session_state:
     st.session_state["conversation_history"] = []
 
+# Load pretrained chatbot model
+@st.cache_resource
+def load_chatbot_model():
+    model_name = "microsoft/DialoGPT-medium"
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForCausalLM.from_pretrained(model_name)
+    return tokenizer, model
 
-# Functions for authentication and account management
-def sign_up(username, password, role, products=None):
-    if username in st.session_state["accounts"]:
-        st.warning("Username already exists!")
-    else:
-        st.session_state["accounts"][username] = {
-            "password": password,
-            "role": role,
-            "products": products if role == "seller" else []
-        }
-        st.success("Account created successfully!")
-
-
-def sign_in(username, password):
-    account = st.session_state["accounts"].get(username)
-    if account and account["password"] == password:
-        st.session_state["current_user"] = username
-        st.session_state["user_role"] = account["role"]
-        st.session_state["products"] = account.get("products", [])
-        st.success(f"Welcome back, {username}!")
-    else:
-        st.error("Invalid username or password.")
-
-
-def log_out():
-    st.session_state["current_user"] = None
-    st.session_state["user_role"] = None
-    st.session_state["products"] = []
-
+tokenizer, model = load_chatbot_model()
 
 # Chatbot functionality
-def detect_sentiment_intensity(message):
-    analysis = TextBlob(message)
-    polarity = analysis.sentiment.polarity
-    if polarity > 0.5:
-        return "strongly positive"
-    elif polarity > 0:
-        return "mildly positive"
-    elif polarity < -0.5:
-        return "strongly negative"
-    elif polarity < 0:
-        return "mildly negative"
-    else:
-        return "neutral"
+def chatbot_response(user_input, conversation_history):
+    # Tokenize the input along with the conversation history
+    new_user_input_ids = tokenizer.encode(
+        user_input + tokenizer.eos_token, return_tensors="pt"
+    )
+    bot_input_ids = (
+        torch.cat([conversation_history, new_user_input_ids], dim=-1)
+        if conversation_history is not None
+        else new_user_input_ids
+    )
 
-
-responses = {
-    "strongly positive": ["That's fantastic! 😊 We’re thrilled you’re happy with our service."],
-    "mildly positive": ["Thanks for your feedback! 😊 Glad to know you’re satisfied."],
-    "neutral": ["Thanks for reaching out. 😊 Let us know if you have any questions!"],
-    "mildly negative": ["We apologize if things didn’t meet your expectations. 😟 How can we help?"],
-    "strongly negative": ["We’re really sorry to hear that. 😞 Please contact support, and we’ll assist you immediately."],
-}
-
-
-def generate_response(user_input):
-    sentiment = detect_sentiment_intensity(user_input)
-    return random.choice(responses.get(sentiment, ["I’m here to help! 😊"]))
+    # Generate a response
+    conversation_history = model.generate(
+        bot_input_ids,
+        max_length=1000,
+        pad_token_id=tokenizer.eos_token_id,
+        top_p=0.92,
+        top_k=50,
+    )
+    bot_response = tokenizer.decode(
+        conversation_history[:, bot_input_ids.shape[-1] :][0], skip_special_tokens=True
+    )
+    return bot_response, conversation_history
 
 
 # Seller dashboard
@@ -142,15 +117,16 @@ def customer_ui():
     user_input = st.text_input("Your message to the chatbot:")
     if st.button("Send to Chatbot"):
         if user_input.strip():
-            bot_response = generate_response(user_input)
-            st.session_state["conversation_history"].append({"user": user_input, "bot": bot_response})
+            prev_conversation = (
+                st.session_state["conversation_history"][-1]
+                if st.session_state["conversation_history"]
+                else None
+            )
+            bot_response, updated_history = chatbot_response(user_input, prev_conversation)
+            st.session_state["conversation_history"].append(updated_history)
+            st.write(f"**Assistify:** {bot_response}")
         else:
             st.warning("Please enter a message.")
-
-    # Display Chat History
-    for turn in st.session_state["conversation_history"]:
-        st.write(f"**You:** {turn['user']}")
-        st.write(f"**Assistify:** {turn['bot']}")
 
 
 # Developer interface
@@ -195,7 +171,7 @@ if not st.session_state["current_user"]:
         sign_up_page()
 else:
     st.sidebar.title(f"Hello, {st.session_state['current_user']}")
-    st.sidebar.button("Sign Out", on_click=log_out)
+    st.sidebar.button("Sign Out", on_click=lambda: log_out())
     if st.session_state["user_role"] == "customer":
         customer_ui()
     elif st.session_state["user_role"] == "seller":
