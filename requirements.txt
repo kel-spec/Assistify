@@ -2,3 +2,6 @@ streamlit
 openai
 textblob
 transformers
+AutoModelForCausalLM
+AutoTokenizer
+torch
