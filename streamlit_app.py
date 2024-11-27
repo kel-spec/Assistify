@@ -19,7 +19,7 @@ def detect_sentiment_intensity(message):
 
 # Define responses with emojis for each sentiment intensity
 responses = {
-    "strongly positive": ["That's fantastic! 😊 We’re thrilled you’re happy with our service."],
+    "strongly positive": ["That's fantastic! 😊 We’re thrilled you’re happy with our product."],
     "mildly positive": ["Thanks for your feedback! 😊 Glad to know you’re satisfied."],
     "neutral": ["Thanks for reaching out. 😊 Let us know if you have any questions!"],
     "mildly negative": ["We apologize if things didn’t meet your expectations. 😟 How can we help?"],
@@ -44,35 +44,40 @@ if st.session_state["user_role"] is None:
 
 # Customer interface
 elif st.session_state["user_role"] == "customer":
-    st.title("Assistify Chatbot - Customer")
+    st.title("Assistify - Customer")
     st.sidebar.header("Customer Settings")
     
-    # Sample product display
-    st.subheader("Available Products")
-    st.write("1. Wireless Earbuds - $50")
-    st.write("2. Smartwatch - $120")
-    st.write("3. Bluetooth Speaker - $30")
+    # Product display
+    st.subheader("Product: Wireless Earbuds")
+    st.image("https://via.placeholder.com/150", caption="Wireless Earbuds", use_column_width=True)
 
+    # Star-based review system
+    st.subheader("Leave a Quick Review")
+    rating = st.radio("Rate the product:", [1, 2, 3], format_func=lambda x: f"{x} Star{'s' if x > 1 else ''}")
+    
+    if st.button("Submit Star Review"):
+        if rating == 1:
+            st.session_state["reviews"]["negative"].append("1-Star Review")
+            st.success("Thank you for your feedback! Your review has been submitted as Negative.")
+        elif rating == 2:
+            st.session_state["reviews"]["neutral"].append("2-Star Review")
+            st.success("Thank you for your feedback! Your review has been submitted as Neutral.")
+        elif rating == 3:
+            st.session_state["reviews"]["positive"].append("3-Star Review")
+            st.success("Thank you for your feedback! Your review has been submitted as Positive.")
+    
+    st.write("---")
+    st.subheader("Have More to Say? Chat With Us!")
+    
     # Initialize conversation history
     if "conversation_history" not in st.session_state:
         st.session_state["conversation_history"] = []
 
-    # Function to greet the user
-    def greet_user(name):
-        return f"Hello, {name}! How can I assist you today?"
-
-    # User name input
-    user_name = st.sidebar.text_input("Enter your name", "Guest")
-
-    # Greet user if name provided
-    if user_name:
-        st.write(greet_user(user_name))
-
-    # User message input
+    # User input
     user_input = st.text_input("You:", "")
 
     # Generate response on button click
-    if st.button("Send"):
+    if st.button("Send Chat Review"):
         if user_input.strip():
             sentiment = detect_sentiment_intensity(user_input)
             response = random.choice(responses.get(sentiment, ["I'm here to help!"]))
@@ -94,7 +99,7 @@ elif st.session_state["user_role"] == "customer":
 
 # Seller interface
 elif st.session_state["user_role"] == "seller":
-    st.title("Assistify Dashboard - Seller")
+    st.title("Assistify - Seller Dashboard")
     st.sidebar.header("Seller Settings")
     
     st.subheader("Customer Feedback Summary")
