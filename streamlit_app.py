@@ -49,8 +49,21 @@ def log_out():
 # Seller dashboard
 def seller_dashboard():
     st.title("Seller Dashboard")
-    st.write("Here are your products and their reviews:")
-    for product_id in st.session_state["products"]:
+    st.write("Add your products and view their reviews:")
+    new_product = st.text_input("Add a new product", "")
+    if st.button("Add Product"):
+        if new_product.strip():
+            if new_product not in st.session_state["product_reviews"]:
+                st.session_state["product_reviews"][new_product] = {"positive": [], "neutral": [], "negative": []}
+            if new_product not in st.session_state["accounts"][st.session_state["current_user"]]["products"]:
+                st.session_state["accounts"][st.session_state["current_user"]]["products"].append(new_product)
+                st.success(f"Product '{new_product}' added successfully!")
+            else:
+                st.warning("Product already exists!")
+        else:
+            st.warning("Please enter a valid product name.")
+
+    for product_id in st.session_state["accounts"][st.session_state["current_user"]]["products"]:
         st.subheader(f"Product: {product_id}")
         reviews = st.session_state["product_reviews"].get(product_id, {"positive": [], "neutral": [], "negative": []})
         st.write("### Positive Reviews")
@@ -67,7 +80,12 @@ def seller_dashboard():
 # Customer interface
 def customer_ui():
     st.title("Product Page")
-    product_id = st.selectbox("Select a Product", list(st.session_state["product_reviews"].keys()))
+    product_list = list(st.session_state["product_reviews"].keys())
+    if not product_list:
+        st.write("No products available at the moment.")
+        return
+
+    product_id = st.selectbox("Select a Product", product_list)
     if product_id:
         review_type = st.radio("Rate the product", options=["1 - Negative", "2 - Neutral", "3 - Positive"])
         user_review = st.text_area("Write your review here (optional)")
