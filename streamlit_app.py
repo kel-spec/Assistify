@@ -1,7 +1,7 @@
 import streamlit as st
 from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
 import pandas as pd
+import torch
 
 # Initialize session state variables
 if "accounts" not in st.session_state:
@@ -16,10 +16,10 @@ if "user_role" not in st.session_state:
     st.session_state["user_role"] = None
 
 if "product_reviews" not in st.session_state:
-    st.session_state["product_reviews"] = {}
+    st.session_state["product_reviews"] = {}  # Format: {"product_id": {"positive": [], "neutral": [], "negative": []}}
 
 if "conversation_history" not in st.session_state:
-    st.session_state["conversation_history"] = []
+    st.session_state["conversation_history"] = []  # Format: [(user_input, bot_response)]
 
 if "chat_feedback" not in st.session_state:
     st.session_state["chat_feedback"] = {"positive": [], "neutral": [], "negative": []}
@@ -34,8 +34,9 @@ def load_chatbot_model():
 
 tokenizer, model = load_chatbot_model()
 
-# Chatbot response
+# Chatbot functionality
 def chatbot_response(user_input, conversation_history):
+    # Tokenize the input along with the conversation history
     new_user_input_ids = tokenizer.encode(
         user_input + tokenizer.eos_token, return_tensors="pt"
     )
@@ -45,6 +46,7 @@ def chatbot_response(user_input, conversation_history):
         else new_user_input_ids
     )
 
+    # Generate a response
     conversation_history = model.generate(
         bot_input_ids,
         max_length=1000,
@@ -53,9 +55,10 @@ def chatbot_response(user_input, conversation_history):
         top_k=50,
     )
     bot_response = tokenizer.decode(
-        conversation_history[:, bot_input_ids.shape[-1]:][0], skip_special_tokens=True
+        conversation_history[:, bot_input_ids.shape[-1] :][0], skip_special_tokens=True
     )
     return bot_response, conversation_history
+
 
 # Seller dashboard
 def seller_dashboard():
@@ -92,6 +95,7 @@ def seller_dashboard():
         for feedback in feedbacks:
             st.write(f"- {feedback}")
 
+
 # Customer interface
 def customer_ui():
     st.title("Product Page")
@@ -123,12 +127,12 @@ def customer_ui():
     if st.button("Send to Chatbot"):
         if user_input.strip():
             prev_conversation = (
-                st.session_state["conversation_history"][-1]
+                st.session_state["conversation_history"][-1][1]
                 if st.session_state["conversation_history"]
                 else None
             )
             bot_response, updated_history = chatbot_response(user_input, prev_conversation)
-            st.session_state["conversation_history"].append(updated_history)
+            st.session_state["conversation_history"].append((user_input, bot_response))
             st.write(f"**Assistify:** {bot_response}")
 
             # Record chatbot feedback
@@ -137,11 +141,21 @@ def customer_ui():
                 options=["Positive", "Neutral", "Negative"],
                 horizontal=True,
             )
-            if feedback:
+            if st.button("Submit Chatbot Feedback"):
                 st.session_state["chat_feedback"][feedback.lower()].append(bot_response)
                 st.success("Thank you for your feedback!")
         else:
             st.warning("Please enter a message.")
+
+    # Show Conversation History
+    st.write("### Conversation History")
+    if st.session_state["conversation_history"]:
+        for i, (user_msg, bot_msg) in enumerate(st.session_state["conversation_history"], start=1):
+            st.write(f"**User {i}:** {user_msg}")
+            st.write(f"**Assistify {i}:** {bot_msg}")
+    else:
+        st.write("No conversations yet.")
+
 
 # Developer interface
 def developer_dashboard():
@@ -152,13 +166,20 @@ def developer_dashboard():
     st.write("### App Settings")
     st.json(st.session_state)
 
+
 # Sign-Up Page
 def sign_up(username, password, role, products):
     if username in st.session_state["accounts"]:
-        st.error("Username already exists!")
-    else:
-        st.session_state["accounts"][username] = {"password": password, "role": role, "products": products}
-        st.success("Account created successfully! Please sign in.")
+        st.warning("Username already exists!")
+        return
+
+    st.session_state["accounts"][username] = {
+        "password": password,
+        "role": role,
+        "products": products,
+    }
+    st.success("Sign up successful! Please sign in to continue.")
+
 
 def sign_up_page():
     st.header("Sign Up")
@@ -171,18 +192,31 @@ def sign_up_page():
     if st.button("Sign Up"):
         sign_up(username, password, role, products)
 
+
 # Login Page
+def sign_in(username, password):
+    account = st.session_state["accounts"].get(username)
+    if account and account["password"] == password:
+        st.session_state["current_user"] = username
+        st.session_state["user_role"] = account["role"]
+        st.success(f"Welcome back, {username}!")
+    else:
+        st.error("Invalid username or password.")
+
+
 def login_page():
     st.header("Sign In")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
     if st.button("Sign In"):
-        if username in st.session_state["accounts"] and st.session_state["accounts"][username]["password"] == password:
-            st.session_state["current_user"] = username
-            st.session_state["user_role"] = st.session_state["accounts"][username]["role"]
-            st.success(f"Welcome, {username}!")
-        else:
-            st.error("Invalid username or password.")
+        sign_in(username, password)
+
+
+# Log Out
+def log_out():
+    st.session_state["current_user"] = None
+    st.session_state["user_role"] = None
+
 
 # Main App Logic
 if not st.session_state["current_user"]:
@@ -195,10 +229,7 @@ if not st.session_state["current_user"]:
 else:
     st.sidebar.title(f"Hello, {st.session_state['current_user']}")
     if st.sidebar.button("Sign Out"):
-        st.session_state["current_user"] = None
-        st.session_state["user_role"] = None
-        st.experimental_rerun()
-
+        log_out()
     if st.session_state["user_role"] == "customer":
         customer_ui()
     elif st.session_state["user_role"] == "seller":
